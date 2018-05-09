@@ -1,0 +1,7 @@
+source ./init.sh
+for i in {0..5}; do python fit.py $i ; done
+hadd tth_fit.root tth_fit_*.root
+rm -f tth_fit_*.root
+mkdir results
+mv sig_bkg_for_fit_* tth_fit.root results/
+python make_result.py
