@@ -1,6 +1,11 @@
 import sys
 import ROOT as r
-infile = r.TFile.Open('/afs/cern.ch/user/d/djamin/fcc_work/FlatTreeAnalyzer/outputs/analysis_fcc_v02/good/tth_boosted/alljets/root_ttH/histos.root')
+#infile = r.TFile.Open('/afs/cern.ch/user/d/djamin/fcc_work/FlatTreeAnalyzer/outputs/analysis_fcc_v02/good/tth_boosted/alljets/root_ttH/histos.root')
+infile = r.TFile.Open('/eos/experiment/fcc/hh/analyses/Higgs/ttH/FlatTreeAnalyzer_outputs/fcc_v02/May2018_highstat_prod/root_ttH/histos.root')
+
+the_bin='_l150'
+#do_shape=True
+do_shape=False
 
 def Sign(x):
  return abs(x) == x
@@ -9,14 +14,16 @@ low_x=50
 high_x=300
 
 #######ttj
-h_ttj_SR=infile.Get('tt+jets_sel3_h_mjj_l2') # >=4 btag
-h_ttj_CR=infile.Get('tt+jets_sel4_h_mjj_l2') # <4 btag CR
+h_ttj_SR=infile.Get('tt+jets_sel3_h_mjj'+the_bin) # >=4 btag
+h_ttj_CR=infile.Get('tt+jets_sel4_h_mjj'+the_bin) # <4 btag CR
+#h_ttj_CR=infile.Get('tt+jets_sel5_h_mjj'+the_bin) # <3 btag CR
 h_ttj_CR.Scale(h_ttj_SR.Integral()/h_ttj_CR.Integral())
-h_ttj=h_ttj_CR
+if do_shape==True: h_ttj=h_ttj_CR
+else             : h_ttj=h_ttj_SR
 h_ttj.Smooth()
 
 #######ttbb
-h_ttbb=infile.Get('tt+bb_sel3_h_mjj_l2')
+h_ttbb=infile.Get('tt+bb_sel3_h_mjj'+the_bin)
 h_ttbb.Smooth()
 
 ## fits
@@ -26,10 +33,19 @@ myfit = r.TF1("myfit","pol5", low_x, high_x)
 h_ttbkg.Fit("myfit","S","",low_x, high_x)
 #h_ttbkg.Fit("myfit")
 
+# extreme case
+##############
+#parl1_0 = 600.
+#parl1_1 = 20.
+#parl2_0 = 600.
+#parl2_1 = -3.
+# 1% case
+##############
 parl1_0 = 600.
-parl1_1 = 20.
+parl1_1 = 5.
 parl2_0 = 600.
-parl2_1 = -3.
+parl2_1 = -0.75
+
 
 my_line1 = r.TF1("my_line1","pol1", low_x, high_x)
 my_line1.SetParameters(parl1_0,parl1_1)
@@ -41,19 +57,38 @@ my_line2.SetParameters(parl2_0,parl2_1)
 h_ttbkg_fit=h_ttj.Clone()
 h_ttbkg_fitup=h_ttj.Clone()
 h_ttbkg_fitdo=h_ttj.Clone()
+shift=5
 for i_bin in xrange( 1, h_ttbkg_fit.GetNbinsX()+1 ):
   bin_val = myfit.Eval(h_ttbkg_fit.GetBinCenter(i_bin))
   h_ttbkg_fit.SetBinContent(i_bin, bin_val)
-  #
-  the_val = my_line1.Eval(h_ttbkg_fit.GetBinCenter(i_bin))
-  if the_val<0. : the_val=0.
-  bin_valerrup = bin_val * the_val
-  h_ttbkg_fitup.SetBinContent(i_bin, bin_valerrup)
-  #
-  the_val = my_line2.Eval(h_ttbkg_fit.GetBinCenter(i_bin))
-  if the_val<0. : the_val=0.
-  bin_valerrdo = bin_val * the_val
-  h_ttbkg_fitdo.SetBinContent(i_bin, bin_valerrdo)
+  # change shape with line
+  ########################
+  if do_shape==True:
+    the_val = my_line1.Eval(h_ttbkg_fit.GetBinCenter(i_bin))
+    if the_val<0. : the_val=0.
+    bin_valerrup = bin_val * the_val
+    h_ttbkg_fitup.SetBinContent(i_bin, bin_valerrup)
+    #
+    the_val = my_line2.Eval(h_ttbkg_fit.GetBinCenter(i_bin))
+    if the_val<0. : the_val=0.
+    bin_valerrdo = bin_val * the_val
+    h_ttbkg_fitdo.SetBinContent(i_bin, bin_valerrdo)
+  # shift
+  ########################
+  else :
+    the_val = 0
+    i_bin_shift = i_bin+shift
+    if i_bin_shift>=1 and i_bin_shift<=h_ttbkg_fit.GetNbinsX():
+      the_val = myfit.Eval(h_ttbkg_fit.GetBinCenter(i_bin_shift))
+    if the_val<0. : the_val=0.
+    h_ttbkg_fitup.SetBinContent(i_bin, the_val)
+    #
+    the_val = 0
+    i_bin_shift = i_bin-shift
+    if i_bin_shift>=1 and i_bin_shift<=h_ttbkg_fit.GetNbinsX():
+      the_val = myfit.Eval(h_ttbkg_fit.GetBinCenter(i_bin_shift))
+    if the_val<0. : the_val=0.
+    h_ttbkg_fitdo.SetBinContent(i_bin, the_val)
 
 Ninit=h_ttbkg_fit.Integral(low_x, high_x)
 h_ttbkg_fit.SetLineWidth(3)
@@ -61,12 +96,12 @@ h_ttbkg_fit.SetLineColor(r.kGreen+3)
 h_ttbkg.SetLineColor(r.kBlack)
 #
 Nfitup=h_ttbkg_fitup.Integral(low_x, high_x)
-h_ttbkg_fitup.Scale(Ninit/Nfitup)
+if do_shape==True: h_ttbkg_fitup.Scale(Ninit/Nfitup)
 h_ttbkg_fitup.SetLineWidth(3)
 h_ttbkg_fitup.SetLineColor(r.kRed)
 #
 Nfitdo=h_ttbkg_fitdo.Integral(low_x, high_x)
-h_ttbkg_fitdo.Scale(Ninit/Nfitdo)
+if do_shape==True: h_ttbkg_fitdo.Scale(Ninit/Nfitdo)
 h_ttbkg_fitdo.SetLineWidth(3)
 h_ttbkg_fitdo.SetLineColor(r.kBlue)
 
