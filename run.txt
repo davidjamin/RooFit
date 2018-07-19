@@ -1,7 +1,8 @@
 source ./init.sh
-for i in {0..17}; do python fit.py $i ; done
+for i in {0..41}; do python fit.py $i ; done
 hadd tth_fit.root tth_fit_*.root
 rm -f tth_fit_*.root
 mkdir results
 mv sig_bkg_for_fit_* tth_fit.root results/
-python make_result.py
+python make_result.py | tee final_result.txt
+mv final_result.txt results/
