@@ -319,11 +319,13 @@ for_beta  = nttj/nttbb
 for_beta_modif = nttj_modif/nttbb_modif
 for_sigFrac = nsig/(nsig+nbkg)
 for_sigFrac_modif = nsig/(nsig+nbkg_modif)
-print "#################\n expected from yields :"
-print "ntth=",ntth,"/ nttz=",nttz,"-> for_alpha=",for_alpha,", alpha=",ntth/nttz
-print "nttbb=",nttbb,"/ nttj=",nttj,"-> for_beta=",for_beta,", beta=",nttbb/nttj
-print "nttbb_modif=",nttbb_modif,"/ nttj_modif=",nttj_modif,"-> for_beta_modif=",for_beta_modif,", beta_modif=",nttbb_modif/nttj_modif
-print "nsig=",nsig,"/ nbkg=",nbkg,"-> for_sigFrac=",for_sigFrac
+#
+if quiet_mode==False:
+  print "#################\n expected from yields :"
+  print "ntth=",ntth,"/ nttz=",nttz,"-> for_alpha=",for_alpha,", alpha=",ntth/nttz
+  print "nttbb=",nttbb,"/ nttj=",nttj,"-> for_beta=",for_beta,", beta=",nttbb/nttj
+  print "nttbb_modif=",nttbb_modif,"/ nttj_modif=",nttj_modif,"-> for_beta_modif=",for_beta_modif,", beta_modif=",nttbb_modif/nttj_modif
+  print "nsig=",nsig,"/ nbkg=",nbkg,"-> for_sigFrac=",for_sigFrac
 
 
 ##################
