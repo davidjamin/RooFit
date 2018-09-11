@@ -32,7 +32,7 @@ do_Smooth=True # good
 the_bin = '_l150' # 150 bins -> good
 
 use_fit=True
-#use_fit=False
+use_fit=False
 
 #the_var = 'h_mjj' # old
 the_var = 'h_m2j' # good
@@ -44,6 +44,8 @@ the_fit_func = "pol6" # good
 
 low_x=50
 high_x=250
+#low_x=0
+#high_x=300
 
 fitlow_x=45
 fithigh_x=300
@@ -123,7 +125,7 @@ def makePseudoExp(p_tth, p_ttz, p_bkg_modif, sig, alpha, ntth, nttz, nbkg_modif,
       # invert alpha
       ratio = (1.-alpha.getVal())/alpha.getVal()
       ratio_err = alpha.getError()/alpha.getVal()
-      ratio_beta = (1.-beta.getVal())/beta.getVal()
+      ratio_beta = 1./beta.getVal() # why?? -> from prints it is true
       if quiet_mode==False: print "alpha=",alpha.getVal(),", beta=",beta.getVal(),", sigFrac=",sigFrac.getVal()
 
     #########
@@ -159,7 +161,7 @@ def makePseudoExp(p_tth, p_ttz, p_bkg_modif, sig, alpha, ntth, nttz, nbkg_modif,
     alpha_err.Fill(ratio_err)
     beta_val.Fill(ratio_beta)
     sigFrac_val.Fill(sigFrac.getVal())
-    if quiet_mode==False: print ratio, ratio_err, ratio_beta, sigFrac
+    if quiet_mode==False: print ratio, ratio_err, ratio_beta, sigFrac.getVal()
 
 def Fit_Fill(h, h_fit):
   fit = r.TF1("fit",the_fit_func, low_x, high_x)
@@ -302,12 +304,17 @@ p_ttbb_modif = r.RooHistPdf("p_ttbb_modif", "p_ttbb_modif", r.RooArgSet(x),d_ttb
 ##################
 # add pdfs
 nbins = h_tth.GetNbinsX()
-ntth  = h_tth.Integral( 0,nbins+1)
-nttz  = h_ttz.Integral( 0,nbins+1) 
-nttj  = h_ttj_fit.Integral( 0,nbins+1)
-nttbb = h_ttbb_fit.Integral(0,nbins+1)
-nttj_modif  = h_ttj_modif.Integral( 0,nbins+1)
-nttbb_modif = h_ttbb_modif.Integral(0,nbins+1)
+x0    =0
+xmax  =nbins+1
+#x0    = h_tth.GetXaxis().FindBin(low_x)
+#xmax  = h_tth.GetXaxis().FindBin(high_x)
+
+ntth  = h_tth.Integral(x0, xmax)
+nttz  = h_ttz.Integral(x0, xmax) 
+nttj  = h_ttj_fit.Integral(x0, xmax)
+nttbb = h_ttbb_fit.Integral(x0, xmax)
+nttj_modif  = h_ttj_modif.Integral(x0, xmax)
+nttbb_modif = h_ttbb_modif.Integral(x0, xmax)
 expected=ntth/nttz
 #
 nsig = nttz+ntth
@@ -379,6 +386,8 @@ alpha_val = r.TH1F("alpha_val"+extra, "alpha_val"+extra, 1000, 0.0, 100.0)
 alpha_err = r.TH1F("alpha_err"+extra, "alpha_err"+extra, 500, 0.0, 1.0)
 beta_val = r.TH1F("beta_val"+extra, "beta_val"+extra, 1000, 0.0, 100.0)
 sigFrac_val = r.TH1F("sigFrac_val"+extra, "sigFrac_val"+extra, 1000, 0.0, 100.0)
+
+if quiet_mode==False: print "before loop : alpha=",alpha.getVal(),", beta=",beta.getVal(),", sigFrac=",sigFrac.getVal()
 
 n_pseudo = 1
 if do_RooFit==True : n_pseudo = 1000
