@@ -5,7 +5,7 @@ quiet_mode=True
 #quiet_mode=False
 
 do_RooFit=True
-do_RooFit=False
+#do_RooFit=False
 
 # RooFit silent mode
 if quiet_mode==True: r.RooMsgService.instance().setGlobalKillBelow(r.RooFit.WARNING)
@@ -93,33 +93,38 @@ if mode > 20 :
   print "mode="+str(mode)+" not supported -> check !!"
   quit()
 
-def makePseudoExp(p_tth, p_ttz, p_bkg, sig, alpha, ntth, nttz, nbkg, alpha_val, alpha_err):
+def makePseudoExp(p_tth, p_ttz, p_bkg_modif, sig, alpha, ntth, nttz, nbkg_modif, alpha_val, alpha_err, beta, beta_val, sigFrac, sigFrac_val):
 
     if quiet_mode==False: print '================================================================================================='
 
     # generate datasets
     gen_tth = p_tth.generate(r.RooArgSet(x), ntth, r.RooFit.Extended())
     gen_ttz = p_ttz.generate(r.RooArgSet(x), nttz, r.RooFit.Extended())
-    gen_bkg = p_bkg.generate(r.RooArgSet(x), nbkg, r.RooFit.Extended())
+    gen_bkg_modif = p_bkg_modif.generate(r.RooArgSet(x), nbkg_modif, r.RooFit.Extended())
 
     # form template
     d_ttcomb = gen_tth
     d_ttcomb.append(gen_ttz)
-    d_ttcomb.append(gen_bkg) # comment here if you don't want bkgd
+    d_ttcomb.append(gen_bkg_modif) # comment here if you don't want bkgd
+
 
     ratio = 0.
     ratio_err = 0.
+    ratio_beta = 0.
 
     #########
     # RooFit
     #########
     if do_RooFit==True :
       sig.fitTo(d_ttcomb,r.RooFit.SumW2Error(False),r.RooFit.PrintLevel(-1))
+      #d_ttcomb.fitTo(sig,r.RooFit.SumW2Error(False),r.RooFit.PrintLevel(-1))
       if quiet_mode==False: print alpha.getVal(), alpha.getError()
       if quiet_mode==False: alpha.Print()
       # invert alpha
       ratio = (1.-alpha.getVal())/alpha.getVal()
       ratio_err = alpha.getError()/alpha.getVal()
+      ratio_beta = (1.-beta.getVal())/beta.getVal()
+      if quiet_mode==False: print "alpha=",alpha.getVal(),", beta=",beta.getVal(),", sigFrac=",sigFrac.getVal()
 
     #########
     # RooStat
@@ -152,7 +157,9 @@ def makePseudoExp(p_tth, p_ttz, p_bkg, sig, alpha, ntth, nttz, nbkg, alpha_val, 
     # fill alpha
     alpha_val.Fill(ratio)
     alpha_err.Fill(ratio_err)
-    if quiet_mode==False: print ratio, ratio_err
+    beta_val.Fill(ratio_beta)
+    sigFrac_val.Fill(sigFrac.getVal())
+    if quiet_mode==False: print ratio, ratio_err, ratio_beta, sigFrac
 
 def Fit_Fill(h, h_fit):
   fit = r.TF1("fit",the_fit_func, low_x, high_x)
@@ -216,8 +223,10 @@ def modif_shift(h, h_shift):
 x = r.RooRealVar("x", "mjj", low_x, high_x)
 frame = x.frame(r.RooFit.Title("sig+bkgd"))
 
-
+##################
+#######ttH
 h_tth=infile.Get('ttH_sel'+str(the_sel)+'_'+the_var+the_bin)
+h_tth.Scale(lumi)
 if do_Smooth==True : h_tth.Smooth()
 d_tth = r.RooDataHist("d_tth", "d_tth", r.RooArgList(x),r.RooFit.Import(h_tth))
 p_tth = r.RooHistPdf("p_tth", "p_tth", r.RooArgSet(x),d_tth)
@@ -226,6 +235,7 @@ p_tth.plotOn(frame, r.RooFit.LineColor(r.kRed) )
 ##################
 #######ttZ
 h_ttz=infile.Get('ttZ_sel'+str(the_sel)+'_'+the_var+the_bin)
+h_ttz.Scale(lumi)
 if do_Smooth==True : h_ttz.Smooth()
 d_ttz = r.RooDataHist("d_ttz", "dttz", r.RooArgList(x),r.RooFit.Import(h_ttz))
 p_ttz = r.RooHistPdf("p_ttz", "p_ttz", r.RooArgSet(x),d_ttz)
@@ -250,22 +260,20 @@ if do_Smooth==True : h_ttj.Smooth()
 # fit
 h_ttj_fit=h_ttj.Clone()
 if use_fit==True: Fit_Fill(h_ttj, h_ttj_fit)
+h_ttj_fit.Scale(lumi)
 # nominal shape
-if mode==1 : h_ttj_fit.Scale(1.+percent)
-if mode==2 : h_ttj_fit.Scale(1.-percent)
 d_ttj = r.RooDataHist("d_ttj", "dttj", r.RooArgList(x),r.RooFit.Import(h_ttj_fit))
 p_ttj = r.RooHistPdf("p_ttj", "p_ttj", r.RooArgSet(x),d_ttj)
 # compute shape modif
 h_ttj_modif=h_ttj_fit.Clone()
-# if norm change here -> 0 impact -> so apply it in nominal shape
-#if mode==1 : h_ttj_modif.Scale(1.+percent)
-#if mode==2 : h_ttj_modif.Scale(1.-percent)
+if mode==1 : h_ttj_modif.Scale(1.+percent)
+if mode==2 : h_ttj_modif.Scale(1.-percent)
 if mode>=4  and mode<=16: modif_line(h_ttj_fit, h_ttj_modif)
 if mode>=17 and mode<=20: modif_shift(h_ttj_fit, h_ttj_modif)
-# midified shape
+# modified shape
 d_ttj_modif = r.RooDataHist("d_ttj_modif", "dttj_modif", r.RooArgList(x),r.RooFit.Import(h_ttj_modif))
 p_ttj_modif = r.RooHistPdf("p_ttj_modif", "p_ttj_modif", r.RooArgSet(x),d_ttj_modif)
-p_ttj_modif.plotOn(frame, r.RooFit.LineColor(r.kBlue) )
+#p_ttj_modif.plotOn(frame, r.RooFit.LineColor(r.kBlue+1) )
 
 ##################
 #######ttbb
@@ -275,30 +283,31 @@ if do_Smooth==True : h_ttbb.Smooth()
 # fit
 h_ttbb_fit=h_ttbb.Clone()
 if use_fit==True: Fit_Fill(h_ttbb, h_ttbb_fit)
+h_ttbb_fit.Scale(lumi)
 # nominal shape
-if mode==1 : h_ttbb_fit.Scale(1.+percent)
-if mode==2 : h_ttbb_fit.Scale(1.-percent)
 d_ttbb = r.RooDataHist("d_ttbb", "dttbb", r.RooArgList(x),r.RooFit.Import(h_ttbb_fit))
 p_ttbb = r.RooHistPdf("p_ttbb", "p_ttbb", r.RooArgSet(x),d_ttbb)
 # compute shape modif
 h_ttbb_modif=h_ttbb_fit.Clone()
+if mode==1 : h_ttbb_modif.Scale(1.+percent)
+if mode==2 : h_ttbb_modif.Scale(1.-percent)
 if mode>=4  and mode<=16: modif_line(h_ttbb_fit, h_ttbb_modif)
 if mode>=17 and mode<=20: modif_shift(h_ttbb_fit, h_ttbb_modif)
 # modified shape
 d_ttbb_modif = r.RooDataHist("d_ttbb_modif", "dttbb_modif", r.RooArgList(x),r.RooFit.Import(h_ttbb_modif))
 p_ttbb_modif = r.RooHistPdf("p_ttbb_modif", "p_ttbb_modif", r.RooArgSet(x),d_ttbb_modif)
-p_ttbb_modif.plotOn(frame, r.RooFit.LineColor(r.kGreen) )
+#p_ttbb_modif.plotOn(frame, r.RooFit.LineColor(r.kGreen+2) )
 
 
 ##################
 # add pdfs
 nbins = h_tth.GetNbinsX()
-ntth  = h_tth.Integral( 0,nbins+1)*lumi
-nttz  = h_ttz.Integral( 0,nbins+1)*lumi 
-nttj  = h_ttj.Integral( 0,nbins+1)*lumi
-nttbb = h_ttbb.Integral(0,nbins+1)*lumi
-nttj_modif  = h_ttj_modif.Integral( 0,nbins+1)*lumi
-nttbb_modif = h_ttbb_modif.Integral(0,nbins+1)*lumi
+ntth  = h_tth.Integral( 0,nbins+1)
+nttz  = h_ttz.Integral( 0,nbins+1) 
+nttj  = h_ttj_fit.Integral( 0,nbins+1)
+nttbb = h_ttbb_fit.Integral(0,nbins+1)
+nttj_modif  = h_ttj_modif.Integral( 0,nbins+1)
+nttbb_modif = h_ttbb_modif.Integral(0,nbins+1)
 expected=ntth/nttz
 #
 nsig = nttz+ntth
@@ -310,6 +319,12 @@ for_beta  = nttj/nttbb
 for_beta_modif = nttj_modif/nttbb_modif
 for_sigFrac = nsig/(nsig+nbkg)
 for_sigFrac_modif = nsig/(nsig+nbkg_modif)
+print "#################\n expected from yields :"
+print "ntth=",ntth,"/ nttz=",nttz,"-> for_alpha=",for_alpha,", alpha=",ntth/nttz
+print "nttbb=",nttbb,"/ nttj=",nttj,"-> for_beta=",for_beta,", beta=",nttbb/nttj
+print "nttbb_modif=",nttbb_modif,"/ nttj_modif=",nttj_modif,"-> for_beta_modif=",for_beta_modif,", beta_modif=",nttbb_modif/nttj_modif
+print "nsig=",nsig,"/ nbkg=",nbkg,"-> for_sigFrac=",for_sigFrac
+
 
 ##################
 alpha = r.RooRealVar("alpha", "fraction of component in signal", for_alpha, 0., 1.)
@@ -318,22 +333,23 @@ sig = r.RooAddPdf("sig", "Signal", r.RooArgList(p_ttz, p_tth),r.RooArgList(alpha
 
 ##################
 beta = r.RooRealVar("beta", "background parameter", for_beta, 0., 1.)
-#beta.setConstant(True)
+beta.setConstant(True)
 bkg = r.RooAddPdf("bkg", "Background", r.RooArgList(p_ttj, p_ttbb),r.RooArgList(beta))
+bkg.plotOn(frame, r.RooFit.LineColor(r.kOrange+1) )
 #
-beta_modif = r.RooRealVar("beta_modif", "background parameter", for_beta_modif, 0., 1.)
-#beta_modif.setConstant(True)
-bkg_modif = r.RooAddPdf("bkg_modif", "Background", r.RooArgList(p_ttj_modif, p_ttbb_modif),r.RooArgList(beta_modif))
+beta_modif = r.RooRealVar("beta_modif", "background modified parameter", for_beta_modif, 0., 1.)
+beta_modif.setConstant(True)
+bkg_modif = r.RooAddPdf("bkg_modif", "Background_modif", r.RooArgList(p_ttj_modif, p_ttbb_modif),r.RooArgList(beta_modif))
 bkg_modif.plotOn(frame, r.RooFit.LineColor(r.kBlack) )
 
 ##################
 sigFrac = r.RooRealVar("sigFrac", "fraction of signal in the tot PDF", for_sigFrac, 0., 1.)
-#sigFrac.setConstant(True)
+sigFrac.setConstant(True)
 sigBkg = r.RooAddPdf("sigBkg", "Signal+Background", r.RooArgList(sig,bkg),r.RooArgList(sigFrac))
 #
-sigFrac_modif = r.RooRealVar("sigFrac_modif", "fraction of signal in the tot PDF", for_sigFrac_modif, 0., 1.)
-#sigFrac_modif.setConstant(True)
-sigBkg_modif = r.RooAddPdf("sigBkg_modif", "Signal+Background_modif", r.RooArgList(sig,bkg_modif),r.RooArgList(sigFrac_modif))
+#sigFrac_modif = r.RooRealVar("sigFrac_modif", "fraction of signal in the tot PDF modified", for_sigFrac_modif, 0., 1.)
+##sigFrac_modif.setConstant(True)
+#sigBkg_modif = r.RooAddPdf("sigBkg_modif", "Signal+Background_modif", r.RooArgList(sig,bkg_modif),r.RooArgList(sigFrac_modif))
 
 extra = '_STAT'
 if mode==1 : extra = '_SCALEup'
@@ -359,12 +375,14 @@ if mode==20: extra = '_SHIFT1SRdo'
 
 alpha_val = r.TH1F("alpha_val"+extra, "alpha_val"+extra, 1000, 0.0, 100.0)
 alpha_err = r.TH1F("alpha_err"+extra, "alpha_err"+extra, 500, 0.0, 1.0)
+beta_val = r.TH1F("beta_val"+extra, "beta_val"+extra, 1000, 0.0, 100.0)
+sigFrac_val = r.TH1F("sigFrac_val"+extra, "sigFrac_val"+extra, 1000, 0.0, 100.0)
 
 n_pseudo = 1
 if do_RooFit==True : n_pseudo = 1000
 for i in xrange(n_pseudo):
     ## sigBkg = initial case
-    makePseudoExp(p_tth, p_ttz, bkg_modif, sigBkg, alpha, int(ntth), int(nttz), int(nbkg), alpha_val, alpha_err)
+    makePseudoExp(p_tth, p_ttz, bkg_modif, sigBkg, alpha, int(ntth), int(nttz), int(nbkg_modif), alpha_val, alpha_err, beta, beta_val, sigFrac, sigFrac_val)
 
 
 outfile = r.TFile('tth_fit_'+str(mode)+'.root','RECREATE')
@@ -375,6 +393,8 @@ if mode==0:
   alpha_exp.Write()
 alpha_val.Write()
 alpha_err.Write()
+beta_val.Write()
+sigFrac_val.Write()
 
 c = r.TCanvas("plot", "plot", 800, 800)
 if quiet_mode==True: c.SetBatch(r.kTRUE)
@@ -383,5 +403,7 @@ frame.Draw()
 c.SaveAs("sig_bkg_for_fit"+extra+".eps")
 
 # final print
+print "------------> measured :"
 print "alpha =",alpha_val.GetMean(),",",alpha_err.GetMean()
+print "beta =",beta_val.GetMean(),", sigFrac =",sigFrac_val.GetMean()
 print "mode =",mode
