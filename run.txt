@@ -4,5 +4,5 @@ hadd tth_fit.root tth_fit_*.root
 #rm -f tth_fit_*.root
 mkdir results
 mv sig_bkg_for_fit_* tth_fit*.root results/
-python make_result.py | tee final_result.txt
-mv final_result.txt results/
+for i in {0..3}; do python make_result.py $i | tee final_result_$i.txt ; done
+mv final_result*.txt results/

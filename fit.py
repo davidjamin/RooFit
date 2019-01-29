@@ -1,6 +1,11 @@
 import sys
 import ROOT as r
 
+######################
+# 1st stable results (without sig/d_ttcomb FitTo inversion bug)
+# http://djamin.web.cern.ch/djamin/FCC/20180403_tth_boosted/high_stat/tth_fit_model.pdf
+######################
+
 quiet_mode=True
 #quiet_mode=False
 
@@ -32,20 +37,24 @@ do_Smooth=True # good
 the_bin = '_l150' # 150 bins -> good
 
 use_fit=True
-use_fit=False
+#use_fit=False
 
 #the_var = 'h_mjj' # old
 the_var = 'h_m2j' # good
 
 #the_sel = 4 # init good
-the_sel = 0
+the_sel = 0 # for file with 2D cut tests
 
 the_fit_func = "pol6" # good
 
 low_x=50
 high_x=250
+## full range
 #low_x=0
 #high_x=300
+## test to avoid tail effects
+#low_x=60
+#high_x=140
 
 fitlow_x=45
 fithigh_x=300
@@ -95,7 +104,7 @@ if mode > 20 :
   print "mode="+str(mode)+" not supported -> check !!"
   quit()
 
-def makePseudoExp(p_tth, p_ttz, p_bkg_modif, sig, alpha, ntth, nttz, nbkg_modif, alpha_val, alpha_err, beta, beta_val, sigFrac, sigFrac_val):
+def makePseudoExp(p_tth, p_ttz, p_bkg_modif, sig, alpha, ntth, nttz, nbkg_modif, alpha_val, alpha_err, beta, beta_val, sigFrac, sigFrac_val, beta_modif, beta_modif_val):
 
     if quiet_mode==False: print '================================================================================================='
 
@@ -109,24 +118,24 @@ def makePseudoExp(p_tth, p_ttz, p_bkg_modif, sig, alpha, ntth, nttz, nbkg_modif,
     d_ttcomb.append(gen_ttz)
     d_ttcomb.append(gen_bkg_modif) # comment here if you don't want bkgd
 
-
     ratio = 0.
     ratio_err = 0.
     ratio_beta = 0.
+    ratio_beta_modif = 0.
 
     #########
     # RooFit
     #########
     if do_RooFit==True :
       sig.fitTo(d_ttcomb,r.RooFit.SumW2Error(False),r.RooFit.PrintLevel(-1))
-      #d_ttcomb.fitTo(sig,r.RooFit.SumW2Error(False),r.RooFit.PrintLevel(-1))
       if quiet_mode==False: print alpha.getVal(), alpha.getError()
       if quiet_mode==False: alpha.Print()
       # invert alpha
       ratio = (1.-alpha.getVal())/alpha.getVal()
       ratio_err = alpha.getError()/alpha.getVal()
       ratio_beta = 1./beta.getVal() # why?? -> from prints it is true
-      if quiet_mode==False: print "alpha=",alpha.getVal(),", beta=",beta.getVal(),", sigFrac=",sigFrac.getVal()
+      ratio_beta_modif = 1./beta_modif.getVal() # why?? -> from prints it is true
+      if quiet_mode==False: print "alpha=",alpha.getVal(),", beta=",beta.getVal(),", beta_modif=",beta_modif.getVal(),", sigFrac=",sigFrac.getVal()
 
     #########
     # RooStat
@@ -160,8 +169,9 @@ def makePseudoExp(p_tth, p_ttz, p_bkg_modif, sig, alpha, ntth, nttz, nbkg_modif,
     alpha_val.Fill(ratio)
     alpha_err.Fill(ratio_err)
     beta_val.Fill(ratio_beta)
+    beta_modif_val.Fill(ratio_beta_modif)
     sigFrac_val.Fill(sigFrac.getVal())
-    if quiet_mode==False: print ratio, ratio_err, ratio_beta, sigFrac.getVal()
+    if quiet_mode==False: print ratio, ratio_err, ratio_beta, ratio_beta_modif, sigFrac.getVal()
 
 def Fit_Fill(h, h_fit):
   fit = r.TF1("fit",the_fit_func, low_x, high_x)
@@ -315,24 +325,29 @@ nttj  = h_ttj_fit.Integral(x0, xmax)
 nttbb = h_ttbb_fit.Integral(x0, xmax)
 nttj_modif  = h_ttj_modif.Integral(x0, xmax)
 nttbb_modif = h_ttbb_modif.Integral(x0, xmax)
-expected=ntth/nttz
 #
 nsig = nttz+ntth
 nbkg = nttbb+nttj
 nbkg_modif = nttbb_modif+nttj_modif
 #
-for_alpha = nttz/ntth
-for_beta  = nttj/nttbb
-for_beta_modif = nttj_modif/nttbb_modif
-for_sigFrac = nsig/(nsig+nbkg)
-for_sigFrac_modif = nsig/(nsig+nbkg_modif)
+alpha_expected=ntth/nttz
+beta_expected=nttbb/nttj
+beta_modif_expected=nttbb_modif/nttj_modif
+sigFrac_expected=nsig/(nsig+nbkg)
+sigFrac_expected_modif=nsig/(nsig+nbkg_modif)
+#
+for_alpha = 1./alpha_expected
+for_beta  = 1./beta_expected
+for_beta_modif = 1./beta_modif_expected
+for_sigFrac = sigFrac_expected
+for_sigFrac_modif = sigFrac_expected_modif
 #
 if quiet_mode==False:
   print "#################\n expected from yields :"
-  print "ntth=",ntth,"/ nttz=",nttz,"-> for_alpha=",for_alpha,", alpha=",ntth/nttz
-  print "nttbb=",nttbb,"/ nttj=",nttj,"-> for_beta=",for_beta,", beta=",nttbb/nttj
-  print "nttbb_modif=",nttbb_modif,"/ nttj_modif=",nttj_modif,"-> for_beta_modif=",for_beta_modif,", beta_modif=",nttbb_modif/nttj_modif
-  print "nsig=",nsig,"/ nbkg=",nbkg,"-> for_sigFrac=",for_sigFrac
+  print "ntth=",ntth,"/ nttz=",nttz,"-> for_alpha=",for_alpha,", alpha=",alpha_expected
+  print "nttbb=",nttbb,"/ nttj=",nttj,"-> for_beta=",for_beta,", beta=",beta_expected
+  print "nttbb_modif=",nttbb_modif,"/ nttj_modif=",nttj_modif,"-> for_beta_modif=",for_beta_modif,", beta_modif=",beta_modif_expected
+  print "nsig=",nsig,"/ nbkg=",nbkg,"-> sigFrac=",sigFrac_expected
 
 
 ##################
@@ -352,8 +367,13 @@ bkg_modif = r.RooAddPdf("bkg_modif", "Background_modif", r.RooArgList(p_ttj_modi
 bkg_modif.plotOn(frame, r.RooFit.LineColor(r.kBlack) )
 
 ##################
+# init
 sigFrac = r.RooRealVar("sigFrac", "fraction of signal in the tot PDF", for_sigFrac, 0., 1.)
 sigFrac.setConstant(True)
+# test float close to exact value
+#percent=5.
+#percent /= 100.
+#sigFrac = r.RooRealVar("sigFrac", "fraction of signal in the tot PDF", for_sigFrac, for_sigFrac*(1.-percent), for_sigFrac*(1.+percent))
 sigBkg = r.RooAddPdf("sigBkg", "Signal+Background", r.RooArgList(sig,bkg),r.RooArgList(sigFrac))
 #
 #sigFrac_modif = r.RooRealVar("sigFrac_modif", "fraction of signal in the tot PDF modified", for_sigFrac_modif, 0., 1.)
@@ -385,26 +405,37 @@ if mode==20: extra = '_SHIFT1SRdo'
 alpha_val = r.TH1F("alpha_val"+extra, "alpha_val"+extra, 1000, 0.0, 100.0)
 alpha_err = r.TH1F("alpha_err"+extra, "alpha_err"+extra, 500, 0.0, 1.0)
 beta_val = r.TH1F("beta_val"+extra, "beta_val"+extra, 1000, 0.0, 100.0)
+beta_modif_val = r.TH1F("beta_modif_val"+extra, "beta_modif_val"+extra, 1000, 0.0, 100.0)
 sigFrac_val = r.TH1F("sigFrac_val"+extra, "sigFrac_val"+extra, 1000, 0.0, 100.0)
 
-if quiet_mode==False: print "before loop : alpha=",alpha.getVal(),", beta=",beta.getVal(),", sigFrac=",sigFrac.getVal()
+if quiet_mode==False: print "before loop : alpha=",alpha.getVal(),", beta=",beta.getVal(),", beta_modif=",beta_modif.getVal(),", sigFrac=",sigFrac.getVal()
 
 n_pseudo = 1
-if do_RooFit==True : n_pseudo = 1000
+if do_RooFit==True: n_pseudo = 1000
 for i in xrange(n_pseudo):
     ## sigBkg = initial case
-    makePseudoExp(p_tth, p_ttz, bkg_modif, sigBkg, alpha, int(ntth), int(nttz), int(nbkg_modif), alpha_val, alpha_err, beta, beta_val, sigFrac, sigFrac_val)
+    makePseudoExp(p_tth, p_ttz, bkg_modif, sigBkg, alpha, int(ntth), int(nttz), int(nbkg_modif), alpha_val, alpha_err, beta, beta_val, sigFrac, sigFrac_val, beta_modif, beta_modif_val)
 
 
 outfile = r.TFile('tth_fit_'+str(mode)+'.root','RECREATE')
 
 if mode==0:
   alpha_exp = r.TH1F("alpha_exp"+extra, "alpha_exp"+extra, 1000, 0.0, 100.0)
-  alpha_exp.Fill(expected)
+  alpha_exp.Fill(alpha_expected)
   alpha_exp.Write()
+  beta_exp = r.TH1F("beta_exp"+extra, "beta_exp"+extra, 1000, 0.0, 100.0)
+  beta_exp.Fill(beta_expected)
+  beta_exp.Write()
+  beta_modif_exp = r.TH1F("beta_modif_exp"+extra, "beta_modif_exp"+extra, 1000, 0.0, 100.0)
+  beta_modif_exp.Fill(beta_modif_expected)
+  beta_modif_exp.Write()
+  sigFrac_exp = r.TH1F("sigFrac_exp"+extra, "sigFrac_exp"+extra, 1000, 0.0, 100.0)
+  sigFrac_exp.Fill(sigFrac_expected)
+  sigFrac_exp.Write()
 alpha_val.Write()
 alpha_err.Write()
 beta_val.Write()
+beta_modif_val.Write()
 sigFrac_val.Write()
 
 c = r.TCanvas("plot", "plot", 800, 800)
@@ -416,5 +447,5 @@ c.SaveAs("sig_bkg_for_fit"+extra+".eps")
 # final print
 print "------------> measured :"
 print "alpha =",alpha_val.GetMean(),",",alpha_err.GetMean()
-print "beta =",beta_val.GetMean(),", sigFrac =",sigFrac_val.GetMean()
+print "beta =",beta_val.GetMean(),", beta_modif =",beta_modif_val.GetMean(),", sigFrac =",sigFrac_val.GetMean()
 print "mode =",mode
