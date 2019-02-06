@@ -2,60 +2,31 @@ import sys
 import ROOT as r
 import copy
 
-######################
-# 1st stable results (without sig/d_ttcomb FitTo inversion bug)
-# http://djamin.web.cern.ch/djamin/FCC/20180403_tth_boosted/high_stat/tth_fit_model.pdf
-######################
-
 quiet_mode=True
-#quiet_mode=False
-
 do_RooFit=True
-#do_RooFit=False
 
 # RooFit silent mode
 if quiet_mode==True: r.RooMsgService.instance().setGlobalKillBelow(r.RooFit.WARNING)
 
-# sel = [0,5]
 infile = r.TFile.Open('/eos/experiment/fcc/hh/analyses/Higgs/ttH/FlatTreeAnalyzer_outputs/fcc_v02/May2018_highstat_prod/good_sel_2D_optim_tail_removal/root_ttH/histos.root')
-# sel = [0,3]
-#infile = r.TFile.Open('/eos/experiment/fcc/hh/analyses/Higgs/ttH/FlatTreeAnalyzer_outputs/fcc_v02/May2018_highstat_prod/good_sel_ttz_optim_tail_removal/root_ttH/histos.root')
 
 ######################
 #####   PARAMS   #####
 ######################
 
 # smooth histos for fit
-#do_Smooth=False
 do_Smooth=True # good
 
 # several histos with different binning are in input
-#the_bin = ''      # 15 bins
-#the_bin = '_l'    # 30 bins
-#the_bin = '_l60'  # 60 bins
-#the_bin = '_l90'  # 90 bins
-#the_bin = '_l120' # 120 bins
 the_bin = '_l150' # 150 bins -> good
 
 use_fit=True
-#use_fit=False
-
-#the_var = 'h_mjj' # old
 the_var = 'h_m2j' # good
-
-#the_sel = 4 # init good
 the_sel = 0 # for file with 2D cut tests
-
 the_fit_func = "pol6" # good
 
 low_x=50
 high_x=250
-## full range
-#low_x=0
-#high_x=300
-## test to avoid tail effects
-#low_x=60
-#high_x=140
 
 fitlow_x=45
 fithigh_x=300
@@ -98,14 +69,11 @@ else : mode = 0
 # 19 = alpha sys, fit of bkgd shape from SR -> shift +1 bins
 # 20 = alpha sys, fit of bkgd shape from SR -> shift -1 bins
 
-## if time later
-#  = alpha sys, JESup
-#  = alpha sys, JESdo
 if mode > 20 :
   print "mode="+str(mode)+" not supported -> check !!"
   quit()
 
-def makePseudoExp(p_tth, p_ttz, p_bkg_modif, sig_ini, alpha, ntth, nttz, nbkg_modif, alpha_val, alpha_err, beta, beta_val, sigFrac, sigFrac_val, beta_modif, beta_modif_val, sigpdf, bkgpdf, bkgpdf_mod):
+def makePseudoExp(p_tth, p_ttz, p_bkg_modif, sig_ini, alpha, ntth, nttz, nbkg_modif, alpha_val, alpha_err, beta, beta_val, sigFrac, sigFrac_val, beta_modif, beta_modif_val):
 
     if quiet_mode==False: print '================================================================================================='
 
@@ -121,17 +89,7 @@ def makePseudoExp(p_tth, p_ttz, p_bkg_modif, sig_ini, alpha, ntth, nttz, nbkg_mo
     # form template
     d_ttcomb = gen_tth
     d_ttcomb.append(gen_ttz)
-    #davd_ttcomb.plotOn(frame, r.RooFit.MarkerColor(r.kRed+1) )
-    #davsigpdf.plotOn(frame, r.RooFit.LineColor(r.kViolet+1) )
     d_ttcomb.append(gen_bkg_modif) # comment here if you don't want bkgd
-    #davgen_bkg_modif.plotOn(frame, r.RooFit.MarkerColor(r.kBlue+1) )
-    #davbkgpdf.plotOn(frame, r.RooFit.LineColor(r.kViolet+1) )
-    #davbkgpdf_mod.plotOn(frame, r.RooFit.LineColor(r.kOrange+1) )
-    #davd_ttcomb.plotOn(frame, r.RooFit.MarkerColor(r.kGreen+1) )
-    #davsig.plotOn(frame, r.RooFit.LineColor(r.kViolet+1) )
-
-    #gen_sig = sig.generate(r.RooArgSet(x), nbkg_modif, r.RooFit.Extended())
-    #gen_sig.plotOn(frame, r.RooFit.MarkerColor(r.kBlue+1) )
 
     ratio = 0.
     ratio_err = 0.
@@ -143,7 +101,6 @@ def makePseudoExp(p_tth, p_ttz, p_bkg_modif, sig_ini, alpha, ntth, nttz, nbkg_mo
     #########
     if do_RooFit==True :
       sig.fitTo(d_ttcomb,r.RooFit.SumW2Error(False),r.RooFit.PrintLevel(-1))
-      #davsig.plotOn(frame, r.RooFit.LineColor(r.kBlack) )
       if quiet_mode==False: print alpha.getVal(), alpha.getError()
       if quiet_mode==False: alpha.Print()
       # invert alpha
@@ -192,7 +149,6 @@ def makePseudoExp(p_tth, p_ttz, p_bkg_modif, sig_ini, alpha, ntth, nttz, nbkg_mo
 
 def Fit_Fill(h, h_fit):
   fit = r.TF1("fit",the_fit_func, low_x, high_x)
-  #option_draw="S"
   option_draw=""
   if quiet_mode==True: option_draw+="QN0"
   h.Fit("fit",option_draw,"",fitlow_x, fithigh_x)
@@ -278,8 +234,6 @@ percent=0.1 # 10%
 h_ttj_SR=infile.Get('tt+jets_sel'+str(the_sel)+'_'+the_var+the_bin) # >=4 btag
 h_ttj_CR=infile.Get('tt+jets_sel'+str(the_sel)+'_'+the_var+the_bin) # tmp fix
 #h_ttj_CR=infile.Get('tt+jets_sel'+str(the_sel+1)+'_'+the_var+the_bin) # <4 btag CR
-# -> available in next round of plots
-#h_ttj_CR=infile.Get('tt+jets_sel'+str(the_sel+2)+'_'+the_var+the_bin) # <3 btag CR
 h_ttj_CR.Scale(h_ttj_SR.Integral()/h_ttj_CR.Integral())
 #
 h_ttj=h_ttj_SR
@@ -446,7 +400,7 @@ n_pseudo = 1
 if do_RooFit==True: n_pseudo = 1000
 for i in xrange(n_pseudo):
     ## sigBkg = initial case
-    makePseudoExp(p_tth, p_ttz, bkg_modif, sigBkg, alpha, int(ntth_full), int(nttz_full), int(nbkg_modif_full), alpha_val, alpha_err, beta, beta_val, sigFrac, sigFrac_val, beta_modif, beta_modif_val, sig, bkg, bkg_modif)
+    makePseudoExp(p_tth, p_ttz, bkg_modif, sigBkg, alpha, int(ntth_full), int(nttz_full), int(nbkg_modif_full), alpha_val, alpha_err, beta, beta_val, sigFrac, sigFrac_val, beta_modif, beta_modif_val)
 
 
 outfile = r.TFile('tth_fit_'+str(mode)+'.root','RECREATE')
