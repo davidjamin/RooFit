@@ -79,59 +79,39 @@ else : mode = 0
 ########
 # 3 = alpha sys, fit of bkgd shape from CR
 ########
-# 4 = alpha sys, fit of bkgd shape from SR -> err shape by 0%
-# 5 = alpha sys, fit of bkgd shape from SR -> err shape by +0.5%
-# 6 = alpha sys, fit of bkgd shape from SR -> err shape by -0.5%
-# 7 = alpha sys, fit of bkgd shape from SR -> err shape by +1.0%
-# 8 = alpha sys, fit of bkgd shape from SR -> err shape by -1.0%
-# 9 = alpha sys, fit of bkgd shape from SR -> err shape by +1.5%
-# 10 = alpha sys, fit of bkgd shape from SR -> err shape by -1.5%
-# 11 = alpha sys, fit of bkgd shape from SR -> err shape by +2.0%
-# 12 = alpha sys, fit of bkgd shape from SR -> err shape by -2.0%
-# 13 = alpha sys, fit of bkgd shape from SR -> err shape by +2.5%
-# 14 = alpha sys, fit of bkgd shape from SR -> err shape by -2.5%
-# 15 = alpha sys, fit of bkgd shape from SR -> err shape by +3.0%
-# 16 = alpha sys, fit of bkgd shape from SR -> err shape by -3.0%
+# 4  = alpha sys, fit of bkgd shape from SR -> err shape by  0%
+# 5  = alpha sys, fit of bkgd shape from SR -> err shape by +1%
+# 6  = alpha sys, fit of bkgd shape from SR -> err shape by -1%
+# 7  = alpha sys, fit of bkgd shape from SR -> err shape by +2%
+# 8  = alpha sys, fit of bkgd shape from SR -> err shape by -2%
+# 9  = alpha sys, fit of bkgd shape from SR -> err shape by +3%
+# 10 = alpha sys, fit of bkgd shape from SR -> err shape by -3%
+# 11 = alpha sys, fit of bkgd shape from SR -> err shape by +4%
+# 12 = alpha sys, fit of bkgd shape from SR -> err shape by -4%
+# 13 = alpha sys, fit of bkgd shape from SR -> err shape by +5%
+# 14 = alpha sys, fit of bkgd shape from SR -> err shape by -5%
+# 15 = alpha sys, fit of bkgd shape from SR -> err shape by +6%
+# 16 = alpha sys, fit of bkgd shape from SR -> err shape by -6%
 ########
 # 17 = alpha sys, fit of bkgd shape from SR -> shift +2 bins
 # 18 = alpha sys, fit of bkgd shape from SR -> shift -2 bins
 # 19 = alpha sys, fit of bkgd shape from SR -> shift +1 bins
 # 20 = alpha sys, fit of bkgd shape from SR -> shift -1 bins
 
-## if time later
-#  = alpha sys, JESup
-#  = alpha sys, JESdo
 if mode > 20 :
   print "mode="+str(mode)+" not supported -> check !!"
   quit()
 
-def makePseudoExp(p_tth, p_ttz, p_bkg_modif, sig_ini, alpha, ntth, nttz, nbkg_modif, alpha_val, alpha_err, beta, beta_val, sigFrac, sigFrac_val, beta_modif, beta_modif_val, sigpdf, bkgpdf, bkgpdf_mod):
+def makePseudoExp(sigBkg, sigBkg_modif, ntth, nttz, nbkg_modif, alpha, alpha_val, alpha_err, beta, beta_val, sigFrac, sigFrac_val, beta_modif, beta_modif_val):
 
     if quiet_mode==False: print '================================================================================================='
 
-    # make a copy of sig to start with the same shape at each iteration
-    #sig = copy.deepcopy(sig_ini)
-    sig = sig_ini
+    # keep alpha
+    alpha.setVal(nttz/ntth)
 
-    # generate datasets
-    gen_tth = p_tth.generate(r.RooArgSet(x), ntth, r.RooFit.Extended())
-    gen_ttz = p_ttz.generate(r.RooArgSet(x), nttz, r.RooFit.Extended())
-    gen_bkg_modif = p_bkg_modif.generate(r.RooArgSet(x), nbkg_modif, r.RooFit.Extended())
-
-    # form template
-    d_ttcomb = gen_tth
-    d_ttcomb.append(gen_ttz)
-    #davd_ttcomb.plotOn(frame, r.RooFit.MarkerColor(r.kRed+1) )
-    #davsigpdf.plotOn(frame, r.RooFit.LineColor(r.kViolet+1) )
-    d_ttcomb.append(gen_bkg_modif) # comment here if you don't want bkgd
-    #davgen_bkg_modif.plotOn(frame, r.RooFit.MarkerColor(r.kBlue+1) )
-    #davbkgpdf.plotOn(frame, r.RooFit.LineColor(r.kViolet+1) )
-    #davbkgpdf_mod.plotOn(frame, r.RooFit.LineColor(r.kOrange+1) )
-    #davd_ttcomb.plotOn(frame, r.RooFit.MarkerColor(r.kGreen+1) )
-    #davsig.plotOn(frame, r.RooFit.LineColor(r.kViolet+1) )
-
-    #gen_sig = sig.generate(r.RooArgSet(x), nbkg_modif, r.RooFit.Extended())
-    #gen_sig.plotOn(frame, r.RooFit.MarkerColor(r.kBlue+1) )
+    # generate datasets + form template
+    #d_ttcomb = sigBkg_modif.generate(r.RooArgSet(x), int(nbkg_modif+ntth+nttz), r.RooFit.Extended())
+    d_ttcomb = sigBkg_modif.generateBinned(r.RooArgSet(x), int(nbkg_modif+ntth+nttz), r.RooFit.Extended())
 
     ratio = 0.
     ratio_err = 0.
@@ -142,16 +122,14 @@ def makePseudoExp(p_tth, p_ttz, p_bkg_modif, sig_ini, alpha, ntth, nttz, nbkg_mo
     # RooFit
     #########
     if do_RooFit==True :
-      sig.fitTo(d_ttcomb,r.RooFit.SumW2Error(False),r.RooFit.PrintLevel(-1))
-      #davsig.plotOn(frame, r.RooFit.LineColor(r.kBlack) )
+      sigBkg.fitTo(d_ttcomb,r.RooFit.SumW2Error(False),r.RooFit.PrintLevel(-1))
       if quiet_mode==False: print alpha.getVal(), alpha.getError()
       if quiet_mode==False: alpha.Print()
       # invert alpha
-      ratio = (1.-alpha.getVal())/alpha.getVal() # init -> is it sure??
-      #ratio = 1./alpha.getVal()
+      ratio = 1./alpha.getVal()
       ratio_err = alpha.getError()/alpha.getVal()
-      ratio_beta = 1./beta.getVal() # from prints it is true
-      ratio_beta_modif = 1./beta_modif.getVal() # from prints it is true
+      ratio_beta = 1./beta.getVal()
+      ratio_beta_modif = 1./beta_modif.getVal()
       if quiet_mode==False: print "alpha=",alpha.getVal(),", beta=",beta.getVal(),", beta_modif=",beta_modif.getVal(),", sigFrac=",sigFrac.getVal()
 
     #########
@@ -159,7 +137,7 @@ def makePseudoExp(p_tth, p_ttz, p_bkg_modif, sig_ini, alpha, ntth, nttz, nbkg_mo
     #########
     else :
       w = r.RooWorkspace("w")
-      getattr(w,'import')(sig)
+      getattr(w,'import')(sigBkg)
       getattr(w,'import')(d_ttcomb)
       #
       model = r.RooStats.ModelConfig()
@@ -178,7 +156,7 @@ def makePseudoExp(p_tth, p_ttz, p_bkg_modif, sig_ini, alpha, ntth, nttz, nbkg_mo
       alpha_high = plInt.UpperLimit(w_alpha)
       # invert alpha
       mean_alpha = (alpha_low+alpha_high)/2.
-      ratio = (1.-mean_alpha)/mean_alpha
+      ratio = 1./mean_alpha
       ratio_err = w_alpha.getError()/mean_alpha
       if quiet_mode==False: print alpha_low, alpha_high, mean_alpha, w_alpha.getError()
 
@@ -206,19 +184,19 @@ def Fit_Fill(h, h_fit):
 def modif_line(h, h_line):
 
   percent = 1.
-  if mode==4  : percent = 0.
-  if mode==5  : percent = 0.5
-  if mode==6  : percent = -0.5
-  if mode==7  : percent = 1.
-  if mode==8  : percent = -1.
-  if mode==9 : percent = 1.5
-  if mode==10 : percent = -1.5
-  if mode==11 : percent = 2.
-  if mode==12 : percent = -2.
-  if mode==13 : percent = 2.5
-  if mode==14 : percent = -2.5
-  if mode==15 : percent = 3.
-  if mode==16 : percent = -3.
+  if mode==4  : percent =  0.
+  if mode==5  : percent =  1.
+  if mode==6  : percent = -1.
+  if mode==7  : percent =  2.
+  if mode==8  : percent = -2.
+  if mode==9  : percent =  3.
+  if mode==10 : percent = -3.
+  if mode==11 : percent =  4.
+  if mode==12 : percent = -4.
+  if mode==13 : percent =  5.
+  if mode==14 : percent = -5.
+  if mode==15 : percent =  6.
+  if mode==16 : percent = -6.
   percent /= 100.
   #
   # the below parl[0]=(Y2-Y1)/(X2-X1)=(1-var_in_Y)/(100-0)
@@ -259,7 +237,7 @@ h_tth.Scale(lumi)
 if do_Smooth==True : h_tth.Smooth()
 d_tth = r.RooDataHist("d_tth", "d_tth", r.RooArgList(x),r.RooFit.Import(h_tth))
 p_tth = r.RooHistPdf("p_tth", "p_tth", r.RooArgSet(x),d_tth)
-p_tth.plotOn(frame, r.RooFit.LineColor(r.kRed) )
+#p_tth.plotOn(frame, r.RooFit.LineColor(r.kRed) )
 
 ##################
 #######ttZ
@@ -268,7 +246,7 @@ h_ttz.Scale(lumi)
 if do_Smooth==True : h_ttz.Smooth()
 d_ttz = r.RooDataHist("d_ttz", "dttz", r.RooArgList(x),r.RooFit.Import(h_ttz))
 p_ttz = r.RooHistPdf("p_ttz", "p_ttz", r.RooArgSet(x),d_ttz)
-p_ttz.plotOn(frame, r.RooFit.LineColor(r.kViolet) )
+#p_ttz.plotOn(frame, r.RooFit.LineColor(r.kViolet) )
 
 # scale variation of bkgd
 percent=0.1 # 10%
@@ -312,7 +290,6 @@ h_ttbb=infile.Get('tt+bb_sel'+str(the_sel)+'_'+the_var+the_bin)
 # smooth
 if do_Smooth==True : h_ttbb.Smooth()
 # fit
-#h_ttbb_fit=h_ttbb.Clone()
 h_ttbb_fit=copy.deepcopy(h_ttbb)
 if use_fit==True: Fit_Fill(h_ttbb, h_ttbb_fit)
 h_ttbb_fit.Scale(lumi)
@@ -320,7 +297,6 @@ h_ttbb_fit.Scale(lumi)
 d_ttbb = r.RooDataHist("d_ttbb", "dttbb", r.RooArgList(x),r.RooFit.Import(h_ttbb_fit))
 p_ttbb = r.RooHistPdf("p_ttbb", "p_ttbb", r.RooArgSet(x),d_ttbb)
 # compute shape modif
-#h_ttbb_modif=h_ttbb_fit.Clone()
 h_ttbb_modif=copy.deepcopy(h_ttbb_fit)
 if mode==1 : h_ttbb_modif.Scale(1.+percent)
 if mode==2 : h_ttbb_modif.Scale(1.-percent)
@@ -333,9 +309,7 @@ p_ttbb_modif = r.RooHistPdf("p_ttbb_modif", "p_ttbb_modif", r.RooArgSet(x),d_ttb
 
 
 ##################
-# add pdfs -> in the range of the RooRealVar
-#x0   = low_x
-#xmax = high_x
+# add pdfs
 nbins = h_tth.GetNbinsX()
 x0   = 0
 xmax = nbins+1
@@ -357,22 +331,11 @@ beta_modif_expected    = nttbb_modif/nttj_modif
 sigFrac_expected       = nsig/(nsig+nbkg)
 sigFrac_expected_modif = nsig/(nsig+nbkg_modif)
 #
-#for_alpha         = (1./alpha_expected)*1.32 # empirical number
 for_alpha         = 1./alpha_expected
-#print for_alpha, alpha_expected
 for_beta          = 1./beta_expected
 for_beta_modif    = 1./beta_modif_expected
 for_sigFrac       = sigFrac_expected
 for_sigFrac_modif = sigFrac_expected_modif
-# needed for toys -> here the full histogram
-nbins = h_tth.GetNbinsX()
-x0   = 0
-xmax = nbins+1
-ntth_full        = h_tth.Integral(x0, xmax)
-nttz_full        = h_ttz.Integral(x0, xmax)
-nttj_modif_full  = h_ttj_modif.Integral(x0, xmax)
-nttbb_modif_full = h_ttbb_modif.Integral(x0, xmax)
-nbkg_modif_full  = nttbb_modif_full+nttj_modif_full
 
 if quiet_mode==False:
   print "#################\n expected from yields :"
@@ -386,49 +349,48 @@ if quiet_mode==False:
 alpha = r.RooRealVar("alpha", "fraction of component in signal", for_alpha, 0., 1.)
 #alpha.setConstant(True)
 sig = r.RooAddPdf("sig", "Signal", r.RooArgList(p_ttz, p_tth),r.RooArgList(alpha))
+sig.plotOn(frame, r.RooFit.LineColor(r.kRed+1) )
 
 ##################
 beta = r.RooRealVar("beta", "background parameter", for_beta, 0., 1.)
 beta.setConstant(True)
 bkg = r.RooAddPdf("bkg", "Background", r.RooArgList(p_ttj, p_ttbb),r.RooArgList(beta))
-bkg.plotOn(frame, r.RooFit.LineColor(r.kOrange+1) )
+#bkg.plotOn(frame, r.RooFit.LineColor(r.kOrange+1) )
 #
 beta_modif = r.RooRealVar("beta_modif", "background modified parameter", for_beta_modif, 0., 1.)
 beta_modif.setConstant(True)
 bkg_modif = r.RooAddPdf("bkg_modif", "Background_modif", r.RooArgList(p_ttj_modif, p_ttbb_modif),r.RooArgList(beta_modif))
-bkg_modif.plotOn(frame, r.RooFit.LineColor(r.kBlack) )
+#bkg_modif.plotOn(frame, r.RooFit.LineColor(r.kBlack) )
 
 ##################
-# init
 sigFrac = r.RooRealVar("sigFrac", "fraction of signal in the tot PDF", for_sigFrac, 0., 1.)
 sigFrac.setConstant(True)
-# test float close to exact value
-#percent=5.
-#percent /= 100.
-#sigFrac = r.RooRealVar("sigFrac", "fraction of signal in the tot PDF", for_sigFrac, for_sigFrac*(1.-percent), for_sigFrac*(1.+percent))
 sigBkg = r.RooAddPdf("sigBkg", "Signal+Background", r.RooArgList(sig,bkg),r.RooArgList(sigFrac))
 #
-#sigFrac_modif = r.RooRealVar("sigFrac_modif", "fraction of signal in the tot PDF modified", for_sigFrac_modif, 0., 1.)
-##sigFrac_modif.setConstant(True)
-#sigBkg_modif = r.RooAddPdf("sigBkg_modif", "Signal+Background_modif", r.RooArgList(sig,bkg_modif),r.RooArgList(sigFrac_modif))
+sigFrac_modif = r.RooRealVar("sigFrac_modif", "fraction of signal in the tot PDF modified", for_sigFrac_modif, 0., 1.)
+sigFrac_modif.setConstant(True)
+sigBkg_modif = r.RooAddPdf("sigBkg_modif", "Signal+Background_modif", r.RooArgList(sig,bkg_modif),r.RooArgList(sigFrac_modif))
+#
+sigBkg.plotOn(frame, r.RooFit.LineColor(r.kGreen+3),  r.RooFit.LineStyle(r.kDashed) )
+sigBkg_modif.plotOn(frame, r.RooFit.LineColor(r.kBlue) )
 
 extra = '_STAT'
 if mode==1 : extra = '_SCALEup'
 if mode==2 : extra = '_SCALEdo'
 if mode==3 : extra = '_SHAPECR'
 if mode==4 : extra = '_FITSR0'
-if mode==5 : extra = '_FITSR0.5up'
-if mode==6 : extra = '_FITSR0.5do'
-if mode==7 : extra = '_FITSR1up'
-if mode==8 : extra = '_FITSR1do'
-if mode==9 : extra = '_FITSR1.5up'
-if mode==10: extra = '_FITSR1.5do'
-if mode==11: extra = '_FITSR2up'
-if mode==12: extra = '_FITSR2do'
-if mode==13: extra = '_FITSR2.5up'
-if mode==14: extra = '_FITSR2.5do'
-if mode==15: extra = '_FITSR3up'
-if mode==16: extra = '_FITSR3do'
+if mode==5 : extra = '_FITSR1up'
+if mode==6 : extra = '_FITSR1do'
+if mode==7 : extra = '_FITSR2up'
+if mode==8 : extra = '_FITSR2do'
+if mode==9 : extra = '_FITSR3up'
+if mode==10: extra = '_FITSR3do'
+if mode==11: extra = '_FITSR4up'
+if mode==12: extra = '_FITSR4do'
+if mode==13: extra = '_FITSR5up'
+if mode==14: extra = '_FITSR5do'
+if mode==15: extra = '_FITSR6up'
+if mode==16: extra = '_FITSR6do'
 if mode==17: extra = '_SHIFT2SRup'
 if mode==18: extra = '_SHIFT2SRdo'
 if mode==19: extra = '_SHIFT1SRup'
@@ -445,8 +407,7 @@ if quiet_mode==False: print "before loop : alpha=",alpha.getVal(),", beta=",beta
 n_pseudo = 1
 if do_RooFit==True: n_pseudo = 1000
 for i in xrange(n_pseudo):
-    ## sigBkg = initial case
-    makePseudoExp(p_tth, p_ttz, bkg_modif, sigBkg, alpha, int(ntth_full), int(nttz_full), int(nbkg_modif_full), alpha_val, alpha_err, beta, beta_val, sigFrac, sigFrac_val, beta_modif, beta_modif_val, sig, bkg, bkg_modif)
+    makePseudoExp(sigBkg, sigBkg_modif, ntth, nttz, nbkg_modif, alpha, alpha_val, alpha_err, beta, beta_val, sigFrac, sigFrac_val, beta_modif, beta_modif_val)
 
 
 outfile = r.TFile('tth_fit_'+str(mode)+'.root','RECREATE')
